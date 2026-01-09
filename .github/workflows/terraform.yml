@@ -87,4 +87,8 @@ jobs:
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy' && github.ref == 'refs/heads/main'
+        env:
+          TF_VAR_neon_database_url: ${{ secrets.NEON_DATABASE_URL }}
+          TF_VAR_newrelic_license_key: ${{ secrets.NEWRELIC_LICENSE_KEY }}
+          TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
         run: terraform destroy -auto-approve -input=false
