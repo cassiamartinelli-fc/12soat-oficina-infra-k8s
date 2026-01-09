@@ -1,201 +1,122 @@
-# Oficina Mecânica - Infraestrutura Kubernetes
+# Oficina Mecânica - Infraestrutura Cloud
 
-Infraestrutura Kubernetes com Kong Gateway e New Relic para API Gateway e observabilidade.
-
----
+Infraestrutura AWS com Kong Gateway e New Relic para API Gateway e observabilidade.
 
 ## 🎯 Propósito
 
-Provisionar e gerenciar a infraestrutura Kubernetes incluindo API Gateway (Kong) com autenticação JWT e integração com observabilidade (New Relic).
+Provisionar infraestrutura na AWS (EC2 + Docker Compose) com Kong Gateway e monitoramento New Relic, permitindo deploy/destroy diário para economia de custos.
 
 ---
 
 ## 🛠️ Tecnologias
 
-- **Minikube** - Cluster Kubernetes local
-- **Kong Gateway OSS** - API Gateway com plugins JWT
-- **New Relic** - APM e monitoramento de infraestrutura
-- **Helm** - Gerenciador de pacotes Kubernetes
-- **Terraform** - Infraestrutura como código (planejado)
-- **GitHub Actions** - CI/CD automático
+- **AWS EC2** - Instância t3.small (Ubuntu 22.04)
+- **Docker Compose** - Orquestração de containers
+- **Kong Gateway** - API Gateway
+- **New Relic** - APM e monitoramento
+- **Terraform** - Infraestrutura como código
+- **Elastic IP** - IP público persistente
 
 ---
 
-## 📁 Estrutura
+## 📊 Infraestrutura
 
 ```
-kong/
-├── auth-ingress.yaml    - Ingress para Lambda de autenticação
-├── lambda-service.yaml  - Service apontando para Lambda
-├── app-ingress.yaml     - Ingress para aplicação NestJS
-└── app-service.yaml     - Service da aplicação
-
-.github/workflows/       - CI/CD (validação de manifestos)
+AWS EC2 (t3.small)
+├── Kong Gateway (porta 8000)
+├── Aplicação NestJS (porta 3000)
+└── Docker Compose
 ```
 
----
+**Custo estimado:** ~$0.30/dia (~$4.50 em 15 dias com apply/destroy diário)
 
 ## 🚀 Deploy
 
-### **Pré-requisitos**
+### Pré-requisitos
+- AWS CLI configurado
+- Terraform instalado
+- Chave SSH criada e importada na AWS
+- Secrets: `NEON_DATABASE_URL`, `JWT_SECRET`, `NEW_RELIC_LICENSE_KEY`
+
+### Deploy Completo
 
 ```bash
-# macOS
-brew install minikube kubectl helm
+# 1. Configurar variáveis
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Editar terraform.tfvars com seus valores
 
-# Linux
-curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube
+# 2. Deploy
+terraform init
+terraform apply
+
+# Output: kong_url = "http://<IP>:8000"
 ```
 
-### **1. Criar Cluster Minikube**
+### Workflow Diário (Economia de Custos)
 
+**Iniciar trabalho:**
 ```bash
-minikube start --cpus=2 --memory=3500 --driver=docker
-minikube addons enable ingress
+terraform apply -auto-approve
+# Aguardar ~3 minutos para containers iniciarem
 ```
 
-### **2. Instalar Kong Gateway**
-
+**Pausar trabalho:**
 ```bash
-helm repo add kong https://charts.konghq.com
-helm repo update
-
-helm install kong kong/kong \
-  --namespace kong \
-  --create-namespace \
-  --set ingressController.installCRDs=false \
-  --set proxy.type=NodePort
-```
-
-### **3. Instalar New Relic**
-
-```bash
-helm repo add newrelic https://helm-charts.newrelic.com
-helm repo update
-
-helm install newrelic-bundle newrelic/nri-bundle \
-  --namespace newrelic \
-  --create-namespace \
-  --set global.licenseKey=$NEW_RELIC_LICENSE_KEY \
-  --set global.cluster=oficina-mecanica-k8s \
-  --set newrelic-infrastructure.privileged=true \
-  --set ksm.enabled=true
-```
-
-### **4. Aplicar Manifestos Kong**
-
-```bash
-# Services e Ingress para Lambda de autenticação
-kubectl apply -f kong/lambda-service.yaml
-kubectl apply -f kong/auth-ingress.yaml
-
-# Services e Ingress para aplicação NestJS
-kubectl apply -f kong/app-service.yaml
-kubectl apply -f kong/app-ingress.yaml
-```
-
-### **5. Verificar Deploy**
-
-```bash
-# Status dos componentes
-kubectl get pods -n kong
-kubectl get pods -n newrelic
-
-# Services e Ingress
-kubectl get svc,ingress -n default
-
-# URL do Kong
-minikube service kong-kong-proxy -n kong --url
+terraform destroy -auto-approve
+# Elastic IP é mantido (mesmo IP público)
 ```
 
 ---
 
-## 🔐 Secrets Necessários
+## 🧪 Teste
 
-Configure no GitHub: **Settings → Secrets → Actions**
+**URL pública:** http://100.51.158.94:8000
 
-| Secret | Descrição |
-|--------|-----------|
-| `NEW_RELIC_LICENSE_KEY` | License key do New Relic |
+```bash
+# Health check
+curl http://100.51.158.94:8000/health
+
+# Resposta esperada:
+{"status":"ok","timestamp":"2026-01-09T18:04:03.133Z","environment":"production"}
+```
 
 ---
 
-## 📊 Arquitetura
+## 📄 Arquitetura
 
 ```
 ┌─────────────┐
 │   Cliente   │
 └──────┬──────┘
-       │ HTTPS
+       │ HTTP
        ▼
-┌──────────────────┐
-│  Kong Gateway    │
-│  (API Gateway)   │
-│  - Rate Limiting │
-│  - JWT Auth      │
-└────┬────────┬────┘
-     │        │
-     │        └──────────────────┐
-     │                           │
-     ▼                           ▼
-┌────────────────┐    ┌──────────────────┐
-│ Lambda Auth    │    │  NestJS App      │
-│ (Serverless)   │    │  (Kubernetes)    │
-│ - Valida CPF   │    │  - API REST      │
-│ - Gera JWT     │    │  - New Relic APM │
-└────────────────┘    └──────────────────┘
-                               │
-                               ▼
-                      ┌─────────────────┐
-                      │ Neon PostgreSQL │
-                      └─────────────────┘
-         ┌──────────────────┴───────────┐
-         │                              │
-         ▼                              ▼
-┌─────────────────┐          ┌──────────────────┐
-│  New Relic APM  │          │ New Relic Infra  │
-│  (App metrics)  │          │ (K8s metrics)    │
-└─────────────────┘          └──────────────────┘
+┌──────────────────────┐
+│   AWS EC2 (t3.small) │
+│  ┌─────────────────┐ │
+│  │  Kong Gateway   │ │ :8000
+│  │  (Docker)       │ │
+│  └────────┬────────┘ │
+│           │          │
+│           ▼          │
+│  ┌─────────────────┐ │
+│  │  NestJS App     │ │ :3000
+│  │  (Docker)       │ │
+│  │  - New Relic    │ │
+│  └────────┬────────┘ │
+└───────────┼──────────┘
+            │
+            ▼
+   ┌─────────────────┐
+   │ Neon PostgreSQL │
+   └─────────────────┘
 ```
 
----
+## 🔗 Repositórios Relacionados
 
-## 🧪 Como Testar
-
-### **Kong Gateway**
-
-```bash
-# Obter URL do Kong
-KONG_URL=$(minikube service kong-kong-proxy -n kong --url | head -1)
-
-# Testar endpoint de autenticação
-curl $KONG_URL/auth -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"cpf":"12345678900"}'
-
-# Testar endpoint protegido (com JWT)
-TOKEN="<jwt-token>"
-curl $KONG_URL/ordens-servico \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### **New Relic**
-
-Acesse o dashboard: https://one.newrelic.com/
-
-- **APM**: Aplicação NestJS
-- **Infrastructure**: Métricas do cluster Kubernetes
-- **Dashboards**: Custom metrics de ordens de serviço
-
----
-
-## 🔗 Recursos
-
-- **Kong Admin API**: http://localhost:8001 (via port-forward)
-- **New Relic Dashboard**: https://one.newrelic.com/
-- **Minikube Dashboard**: `minikube dashboard`
-- **GitHub Actions**: https://github.com/<usuario>/12soat-oficina-infra-k8s/actions
+- [12soat-oficina-app](https://github.com/cassiamartinelli-fc/12soat-oficina-app) - API NestJS
+- [12soat-oficina-lambda-auth](https://github.com/cassiamartinelli-fc/12soat-oficina-lambda-auth) - Lambda Auth
+- [12soat-oficina-infra-database](https://github.com/cassiamartinelli-fc/12soat-oficina-infra-database) - Neon PostgreSQL
 
 ---
 

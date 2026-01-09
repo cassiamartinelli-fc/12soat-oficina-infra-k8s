@@ -1,0 +1,8 @@
+# Copie para terraform.tfvars e preencha
+
+aws_region           = "us-east-1"
+instance_type        = "t3.small"
+app_image            = "ghcr.io/cassiamartinelli-fc/12soat-oficina-app:latest"
+neon_database_url    = "postgresql://user:pass@host/db"
+newrelic_license_key = "your-newrelic-key"
+jwt_secret           = "your-jwt-secret"
