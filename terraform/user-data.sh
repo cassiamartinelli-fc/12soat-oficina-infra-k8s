@@ -45,13 +45,54 @@ EOF
 cat > /home/ubuntu/kong.yml <<'EOF'
 _format_version: "3.0"
 
+consumers:
+  - username: oficina-client
+    jwt_secrets:
+      - key: oficina-mecanica-secret-key-2025
+        algorithm: HS256
+
 services:
   - name: oficina-app
     url: http://app:3000
     routes:
-      - name: app-route
+      # Rotas públicas (GET apenas)
+      - name: public-reads
         paths:
-          - /
+          - /health
+          - /clientes
+          - /veiculos
+          - /pecas
+          - /servicos
+          - /ordens-servico
+        methods:
+          - GET
+        strip_path: false
+
+      # Rota de autenticação (pública)
+      - name: auth-route
+        paths:
+          - /auth
+        methods:
+          - POST
+        strip_path: false
+
+      # Rotas protegidas (POST, PATCH, DELETE)
+      - name: protected-writes
+        paths:
+          - /clientes
+          - /veiculos
+          - /pecas
+          - /servicos
+          - /ordens-servico
+        methods:
+          - POST
+          - PATCH
+          - DELETE
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: key
 EOF
 
 # Iniciar containers
