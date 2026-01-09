@@ -64,21 +64,25 @@ terraform apply -auto-approve
 **Pausar trabalho:**
 ```bash
 terraform destroy -auto-approve
-# Elastic IP é mantido (mesmo IP público)
 ```
+
+⚠️ **Observação:** O IP público muda a cada ciclo destroy/apply. Para manter o mesmo IP, não execute `destroy` (apenas pare a instância EC2 via console AWS).
 
 ---
 
 ## 🧪 Teste
 
-**URL pública:** http://100.51.158.94:8000
+**URL pública atual:** http://3.92.172.231:8000
 
 ```bash
-# Health check
-curl http://100.51.158.94:8000/health
+# Obter URL atual
+terraform output -raw kong_url
+
+# Health check (público)
+curl $(terraform output -raw kong_url)/health
 
 # Resposta esperada:
-{"status":"ok","timestamp":"2026-01-09T18:04:03.133Z","environment":"production"}
+{"status":"ok","timestamp":"...","environment":"production"}
 ```
 
 ---
