@@ -49,6 +49,7 @@ consumers:
   - username: oficina-client
     jwt_secrets:
       - key: oficina-mecanica-secret-key-2025
+        secret: ${jwt_secret}
         algorithm: HS256
 
 services:
