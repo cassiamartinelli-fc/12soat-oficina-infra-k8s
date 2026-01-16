@@ -39,7 +39,7 @@ resource "aws_security_group" "oficina" {
   }
 }
 
-# Elastic IP - persiste entre destroy/apply
+# Elastic IP
 resource "aws_eip" "oficina" {
   domain = "vpc"
   tags = {

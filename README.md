@@ -4,9 +4,7 @@ Infraestrutura AWS com Kong Gateway e New Relic para API Gateway e observabilida
 
 ## 🎯 Propósito
 
-Provisionar infraestrutura na AWS (EC2 + Docker Compose) com Kong Gateway e monitoramento New Relic, permitindo deploy/destroy diário para economia de custos.
-
----
+Provisionar infraestrutura na AWS (EC2 + Docker Compose) com Kong Gateway e monitoramento New Relic.
 
 ## 🛠️ Tecnologias
 
@@ -17,8 +15,6 @@ Provisionar infraestrutura na AWS (EC2 + Docker Compose) com Kong Gateway e moni
 - **Terraform** - Infraestrutura como código
 - **Elastic IP** - IP público persistente
 
----
-
 ## 📊 Infraestrutura
 
 ```
@@ -28,60 +24,61 @@ AWS EC2 (t3.small)
 └── Docker Compose
 ```
 
-**Custo estimado:** ~$0.30/dia (~$4.50 em 15 dias com apply/destroy diário)
+## 🚀 Setup
 
-## 🚀 Deploy
+A infraestrutura AWS (EC2 + Kong + New Relic) é provisionada via GitHub Actions.
 
-### Pré-requisitos
-- AWS CLI configurado
-- Terraform instalado
-- Chave SSH criada e importada na AWS
-- Secrets: `NEON_DATABASE_URL`, `JWT_SECRET`, `NEW_RELIC_LICENSE_KEY`
+**Passos para provisionar:**
 
-### Deploy Completo
+1. Provisionar infraestrutura:
+   ```
+   Actions → Terraform AWS → Run workflow → apply
+   ```
+   Aguardar ~3 minutos para containers iniciarem.
 
-```bash
-# 1. Configurar variáveis
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
-# Editar terraform.tfvars com seus valores
+2. Obter URL pública:
+   ```
+   Actions → Terraform AWS → Run workflow → output
+   ```
+   Copiar a URL do Kong Gateway exibida nos logs.
 
-# 2. Deploy
-terraform init
-terraform apply
+3. Testar:
+   ```bash
+   curl <URL_OBTIDA>/health
+   ```
 
-# Output: kong_url = "http://<IP>:8000"
+**Para provisionar localmente:**
+
+📖 Ver [Documentação Terraform](terraform/README.md)
+
+## ⚙️ Workflow (GitHub Actions)
+
+### Terraform AWS
+
+```
+Actions → Terraform AWS → Run workflow
+Escolher: plan | apply | output | destroy
 ```
 
-### Workflow Diário (Economia de Custos)
+- **plan** — Valida a configuração Terraform
+- **apply** — Provisiona infraestrutura AWS (EC2 + Kong + Docker)
+- **output** — Exibe URL pública atual do Kong Gateway
+- **destroy** — Deleta a infraestrutura (economia de custos)
 
-**Iniciar trabalho:**
-```bash
-terraform apply -auto-approve
-# Aguardar ~3 minutos para containers iniciarem
-```
+**Observação:** Execute `output` sempre que precisar da URL pública, pois o IP muda a cada ciclo destroy/apply.
 
-**Pausar trabalho:**
-```bash
-terraform destroy -auto-approve
-# Elastic IP é mantido (mesmo IP público)
-```
-
----
-
-## 🧪 Teste
-
-**URL pública:** http://100.51.158.94:8000
+## 🧪 Validação
 
 ```bash
-# Health check
-curl http://100.51.158.94:8000/health
+# 1. Obter URL via workflow output ou terraform
+terraform output -raw kong_url
+
+# 2. Health check
+curl <URL_OBTIDA>/health
 
 # Resposta esperada:
-{"status":"ok","timestamp":"2026-01-09T18:04:03.133Z","environment":"production"}
+{"status":"ok","timestamp":"...","environment":"production"}
 ```
-
----
 
 ## 📄 Arquitetura
 
@@ -112,14 +109,24 @@ curl http://100.51.158.94:8000/health
    └─────────────────┘
 ```
 
-## 🔗 Repositórios Relacionados
+## 🔐 CI/CD — Secrets e permissões
 
-- [12soat-oficina-app](https://github.com/cassiamartinelli-fc/12soat-oficina-app) - API NestJS
-- [12soat-oficina-lambda-auth](https://github.com/cassiamartinelli-fc/12soat-oficina-lambda-auth) - Lambda Auth
-- [12soat-oficina-infra-database](https://github.com/cassiamartinelli-fc/12soat-oficina-infra-database) - Neon PostgreSQL
+✅ **Todos os secrets já estão devidamente configurados neste repositório.**
 
----
+**Secrets necessários (Settings → Secrets → Actions):**
+- `AWS_ACCESS_KEY_ID` — AWS Access Key
+- `AWS_SECRET_ACCESS_KEY` — AWS Secret Key
+- `NEON_DATABASE_URL` — Connection string do PostgreSQL (Neon)
+- `NEWRELIC_LICENSE_KEY` — License key do New Relic
+- `JWT_SECRET` — Chave secreta para JWT
+
+## 🔗 Recursos
+
+- **Repositórios relacionados**:
+  - [12soat-oficina-app](https://github.com/cassiamartinelli-fc/12soat-oficina-app)
+  - [12soat-oficina-lambda-auth](https://github.com/cassiamartinelli-fc/12soat-oficina-lambda-auth)
+  - [12soat-oficina-infra-database](https://github.com/cassiamartinelli-fc/12soat-oficina-infra-database)
 
 ## 📄 Licença
 
-MIT - Tech Challenge 12SOAT Fase 3
+MIT — Tech Challenge 12SOAT Fase 3
