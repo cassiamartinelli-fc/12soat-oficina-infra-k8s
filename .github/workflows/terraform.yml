@@ -16,6 +16,7 @@ on:
         options:
           - plan
           - apply
+          - output
           - destroy
 
 env:
@@ -81,9 +82,24 @@ jobs:
           TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
         run: terraform apply -auto-approve -input=false
 
-      - name: Terraform Outputs
+      - name: Terraform Outputs (after apply)
         if: github.event.inputs.action == 'apply' && github.ref == 'refs/heads/main'
-        run: terraform output -json
+        run: |
+          echo "### 📊 Infraestrutura Provisionada"
+          echo ""
+          terraform output kong_url
+          echo ""
+          terraform output next_steps
+
+      - name: Show Outputs
+        if: github.event.inputs.action == 'output'
+        run: |
+          echo "### 📊 URL Pública Atual"
+          echo ""
+          terraform output kong_url
+          echo ""
+          echo "**Health Check:**"
+          echo "curl \$(terraform output -raw kong_url)/health"
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy' && github.ref == 'refs/heads/main'
