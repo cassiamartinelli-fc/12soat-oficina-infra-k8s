@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - 'terraform/**'
+      - "terraform/**"
   workflow_dispatch:
     inputs:
       action:
-        description: 'Terraform action'
+        description: "Terraform action"
         required: true
-        default: 'plan'
+        default: "plan"
         type: choice
         options:
           - plan
@@ -20,8 +20,8 @@ on:
           - destroy
 
 env:
-  TF_VERSION: '1.5'
-  AWS_REGION: 'us-east-1'
+  TF_VERSION: "1.5"
+  AWS_REGION: "us-east-1"
 
 jobs:
   terraform:
@@ -87,19 +87,50 @@ jobs:
         run: |
           echo "### 📊 Infraestrutura Provisionada"
           echo ""
+          echo "**Kong Gateway URL:**"
           terraform output kong_url
           echo ""
+          echo "**Public IP:**"
+          terraform output public_ip
+          echo ""
+          echo "**Instance ID:**"
+          terraform output instance_id
+          echo ""
+          echo "**Próximos passos:**"
           terraform output next_steps
 
       - name: Show Outputs
         if: github.event.inputs.action == 'output'
         run: |
-          echo "### 📊 URL Pública Atual"
+          echo "### 📊 Informações da Infraestrutura"
           echo ""
+          echo "**Kong Gateway URL:**"
           terraform output kong_url
+          echo ""
+          echo "**Public IP:**"
+          terraform output public_ip
+          echo ""
+          echo "**Instance ID:**"
+          terraform output instance_id
+          echo ""
+          echo "### 🧪 Comandos Úteis"
           echo ""
           echo "**Health Check:**"
           echo "curl \$(terraform output -raw kong_url)/health"
+          echo ""
+          echo "**Listar clientes:**"
+          echo "curl \$(terraform output -raw kong_url)/clientes"
+          echo ""
+          echo "**Criar cliente (exemplo):**"
+          echo "curl -X POST \$(terraform output -raw kong_url)/clientes \\"
+          echo "  -H \"Content-Type: application/json\" \\"
+          echo "  -d '{\"nome\":\"João Silva\",\"cpfCnpj\":\"12345678900\",\"telefone\":\"11999999999\"}'"
+          echo ""
+          echo "**SSH na instância:**"
+          echo "ssh -i ~/.ssh/oficina-key ubuntu@\$(terraform output -raw public_ip)"
+          echo ""
+          echo "**Logs da aplicação:**"
+          echo "ssh -i ~/.ssh/oficina-key ubuntu@\$(terraform output -raw public_ip) 'docker logs -f \$(docker ps -q --filter name=app)'"
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy' && github.ref == 'refs/heads/main'
