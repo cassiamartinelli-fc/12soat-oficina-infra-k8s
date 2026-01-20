@@ -87,16 +87,16 @@ jobs:
         run: |
           echo "### 📊 Infraestrutura Provisionada"
           echo ""
-          echo "**Kong Gateway URL:**"
+          echo "Kong Gateway URL:"
           terraform output kong_url
           echo ""
-          echo "**Public IP:**"
+          echo "Public IP:"
           terraform output public_ip
           echo ""
-          echo "**Instance ID:**"
+          echo "Instance ID:"
           terraform output instance_id
           echo ""
-          echo "**Próximos passos:**"
+          echo "Próximos passos:"
           terraform output next_steps
 
       - name: Show Outputs
@@ -104,32 +104,32 @@ jobs:
         run: |
           echo "### 📊 Informações da Infraestrutura"
           echo ""
-          echo "**Kong Gateway URL:**"
+          echo "Kong Gateway URL:"
           terraform output kong_url
           echo ""
-          echo "**Public IP:**"
+          echo "Public IP:"
           terraform output public_ip
           echo ""
-          echo "**Instance ID:**"
+          echo "Instance ID:"
           terraform output instance_id
           echo ""
           echo "### 🧪 Comandos Úteis"
           echo ""
-          echo "**Health Check:**"
+          echo "Health Check:"
           echo "curl \$(terraform output -raw kong_url)/health"
           echo ""
-          echo "**Listar clientes:**"
+          echo "Listar clientes:"
           echo "curl \$(terraform output -raw kong_url)/clientes"
           echo ""
-          echo "**Criar cliente (exemplo):**"
+          echo "Criar cliente (exemplo):"
           echo "curl -X POST \$(terraform output -raw kong_url)/clientes \\"
           echo "  -H \"Content-Type: application/json\" \\"
           echo "  -d '{\"nome\":\"João Silva\",\"cpfCnpj\":\"12345678900\",\"telefone\":\"11999999999\"}'"
           echo ""
-          echo "**SSH na instância:**"
+          echo "SSH na instância:"
           echo "ssh -i ~/.ssh/oficina-key ubuntu@\$(terraform output -raw public_ip)"
           echo ""
-          echo "**Logs da aplicação:**"
+          echo "Logs da aplicação:"
           echo "ssh -i ~/.ssh/oficina-key ubuntu@\$(terraform output -raw public_ip) 'docker logs -f \$(docker ps -q --filter name=app)'"
 
       - name: Terraform Destroy
