@@ -59,7 +59,7 @@ services:
       # Swagger/Documentação (pública)
       - name: api-docs
         paths:
-          - /api-docs
+          - ~/api-docs
         strip_path: false
 
       # Rotas públicas (GET apenas)
