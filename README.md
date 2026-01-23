@@ -1,4 +1,4 @@
-# Oficina Mecânica - Infraestrutura Cloud
+# Oficina Mecânica — Infraestrutura Cloud
 
 Infraestrutura AWS com Kong Gateway e New Relic para API Gateway e observabilidade.
 
