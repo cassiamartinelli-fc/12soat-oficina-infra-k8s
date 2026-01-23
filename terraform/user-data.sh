@@ -56,6 +56,12 @@ services:
   - name: oficina-app
     url: http://app:3000
     routes:
+      # Swagger/Documentação (pública)
+      - name: api-docs
+        paths:
+          - /api-docs
+        strip_path: false
+
       # Rotas públicas (GET apenas)
       - name: public-reads
         paths:
