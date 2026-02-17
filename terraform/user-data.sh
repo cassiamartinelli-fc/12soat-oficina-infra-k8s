@@ -1,16 +1,20 @@
 #!/bin/bash
 set -e
 
-# Instalar K3s (Kubernetes single-node)
-curl -sfL https://get.k3s.io | sh -
+# Obter IP público da EC2
+PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+
+# Instalar K3s com IP público no certificado TLS
+curl -sfL https://get.k3s.io | sh -s - \
+  --tls-san "$PUBLIC_IP"
 
 # Aguardar K3s estar pronto
 sleep 30
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
-# Configurar kubectl para usuário ubuntu
+# Gerar kubeconfig com IP público (para uso externo via kubectl)
 mkdir -p /home/ubuntu/.kube
-cp /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config
+sed "s/127.0.0.1/$PUBLIC_IP/g" /etc/rancher/k3s/k3s.yaml > /home/ubuntu/.kube/config
 chown ubuntu:ubuntu /home/ubuntu/.kube/config
 
 # Criar ConfigMap com config declarativa do Kong
