@@ -78,20 +78,18 @@ jobs:
           TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
         run: terraform apply -auto-approve -input=false
 
-      - name: Exportar kubeconfig após Apply
+      - name: Instruções pós-apply
         if: github.event.inputs.action == 'apply' && github.ref == 'refs/heads/main'
-        env:
-          EC2_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           PUBLIC_IP=$(terraform output -raw public_ip)
-          echo "$EC2_KEY" > /tmp/oficina-key.pem
-          chmod 400 /tmp/oficina-key.pem
-          echo "Aguardando K3s inicializar (2 min)..."
-          sleep 120
-          KUBECONFIG=$(ssh -o StrictHostKeyChecking=no -i /tmp/oficina-key.pem ubuntu@$PUBLIC_IP \
-            "cat ~/.kube/config")
-          echo "Kubeconfig obtido com sucesso. Atualize o secret KUBECONFIG nos repos dos serviços:"
-          echo "$KUBECONFIG"
+          echo "============================================"
+          echo "EC2 provisionada com sucesso!"
+          echo "IP Público: $PUBLIC_IP"
+          echo "============================================"
+          echo "Após ~2 minutos, recupere o kubeconfig:"
+          echo "ssh -i ~/.ssh/oficina-key.pem ubuntu@$PUBLIC_IP cat ~/.kube/config"
+          echo "Atualize o secret KUBECONFIG nos repos dos serviços com o conteúdo acima."
+          echo "============================================"
 
       - name: Exibir informações da infraestrutura
         if: github.event.inputs.action == 'apply' || github.event.inputs.action == 'output'
