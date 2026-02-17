@@ -37,105 +37,74 @@ jobs:
         working-directory: terraform
 
     steps:
-      - name: Checkout
+      - name: Checkout do repositório
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
+      - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Setup Terraform
+      - name: Configurar Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Terraform Format
+      - name: Verificar formatação
         id: fmt
         run: terraform fmt -check -recursive
         continue-on-error: true
 
-      - name: Terraform Init
+      - name: Inicializar Terraform
         id: init
         run: terraform init
 
-      - name: Terraform Validate
+      - name: Validar configuração
         id: validate
         run: terraform validate -no-color
 
-      - name: Terraform Plan
+      - name: Planejar alterações
         id: plan
         if: github.event_name == 'pull_request' || github.event.inputs.action == 'plan' || github.event.inputs.action == ''
         env:
-          TF_VAR_neon_database_url: ${{ secrets.NEON_DATABASE_URL }}
-          TF_VAR_newrelic_license_key: ${{ secrets.NEWRELIC_LICENSE_KEY }}
           TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
         run: terraform plan -no-color -input=false
 
-      - name: Terraform Apply
+      - name: Aplicar infraestrutura
         if: github.event.inputs.action == 'apply' && github.ref == 'refs/heads/main'
         env:
-          TF_VAR_neon_database_url: ${{ secrets.NEON_DATABASE_URL }}
-          TF_VAR_newrelic_license_key: ${{ secrets.NEWRELIC_LICENSE_KEY }}
           TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
         run: terraform apply -auto-approve -input=false
 
-      - name: Terraform Outputs (after apply)
+      - name: Exportar kubeconfig após Apply
         if: github.event.inputs.action == 'apply' && github.ref == 'refs/heads/main'
+        env:
+          EC2_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
-          echo "### 📊 Infraestrutura Provisionada"
-          echo ""
+          PUBLIC_IP=$(terraform output -raw public_ip)
+          echo "$EC2_KEY" > /tmp/oficina-key.pem
+          chmod 400 /tmp/oficina-key.pem
+          echo "Aguardando K3s inicializar (2 min)..."
+          sleep 120
+          KUBECONFIG=$(ssh -o StrictHostKeyChecking=no -i /tmp/oficina-key.pem ubuntu@$PUBLIC_IP \
+            "cat ~/.kube/config")
+          echo "Kubeconfig obtido com sucesso. Atualize o secret KUBECONFIG nos repos dos serviços:"
+          echo "$KUBECONFIG"
+
+      - name: Exibir informações da infraestrutura
+        if: github.event.inputs.action == 'apply' || github.event.inputs.action == 'output'
+        run: |
           echo "Kong Gateway URL:"
           terraform output kong_url
-          echo ""
-          echo "Public IP:"
+          echo "IP Público:"
           terraform output public_ip
-          echo ""
           echo "Instance ID:"
           terraform output instance_id
-          echo ""
-          echo "Próximos passos:"
-          terraform output next_steps
 
-      - name: Show Outputs
-        if: github.event.inputs.action == 'output'
-        run: |
-          echo "### 📊 Informações da Infraestrutura"
-          echo ""
-          echo "Kong Gateway URL:"
-          terraform output kong_url
-          echo ""
-          echo "Public IP:"
-          terraform output public_ip
-          echo ""
-          echo "Instance ID:"
-          terraform output instance_id
-          echo ""
-          echo "### 🧪 Comandos Úteis"
-          echo ""
-          echo "Health Check:"
-          echo "curl \$(terraform output -raw kong_url)/health"
-          echo ""
-          echo "Listar clientes:"
-          echo "curl \$(terraform output -raw kong_url)/clientes"
-          echo ""
-          echo "Criar cliente (exemplo):"
-          echo "curl -X POST \$(terraform output -raw kong_url)/clientes \\"
-          echo "  -H \"Content-Type: application/json\" \\"
-          echo "  -d '{\"nome\":\"João Silva\",\"cpfCnpj\":\"12345678900\",\"telefone\":\"11999999999\"}'"
-          echo ""
-          echo "SSH na instância:"
-          echo "ssh -i ~/.ssh/oficina-key ubuntu@\$(terraform output -raw public_ip)"
-          echo ""
-          echo "Logs da aplicação:"
-          echo "ssh -i ~/.ssh/oficina-key ubuntu@\$(terraform output -raw public_ip) 'docker logs -f \$(docker ps -q --filter name=app)'"
-
-      - name: Terraform Destroy
+      - name: Destruir infraestrutura
         if: github.event.inputs.action == 'destroy' && github.ref == 'refs/heads/main'
         env:
-          TF_VAR_neon_database_url: ${{ secrets.NEON_DATABASE_URL }}
-          TF_VAR_newrelic_license_key: ${{ secrets.NEWRELIC_LICENSE_KEY }}
           TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
         run: terraform destroy -auto-approve -input=false

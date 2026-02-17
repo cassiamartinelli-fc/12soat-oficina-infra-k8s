@@ -18,10 +18,10 @@ output "next_steps" {
   value       = <<-EOT
     ✅ Infraestrutura criada com sucesso!
 
-    Kong Gateway: http://${aws_eip.oficina.public_ip}:8000
+    Kong Gateway: http://${aws_eip.oficina.public_ip}:30080
 
     Teste:
-    curl http://${aws_eip.oficina.public_ip}:8000/health
+    curl http://${aws_eip.oficina.public_ip}:30080/health
 
     ⚠️ Aguarde ~3 minutos para containers iniciarem
   EOT

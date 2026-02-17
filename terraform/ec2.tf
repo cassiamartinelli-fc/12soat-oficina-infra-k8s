@@ -27,6 +27,22 @@ resource "aws_security_group" "oficina" {
     description = "Kong Admin API (debug)"
   }
 
+  ingress {
+    from_port   = 30080
+    to_port     = 30080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Kong NodePort (K3s)"
+  }
+
+  ingress {
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "K3s API Server (kubectl)"
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -56,10 +72,7 @@ resource "aws_instance" "oficina" {
   vpc_security_group_ids = [aws_security_group.oficina.id]
 
   user_data = templatefile("${path.module}/user-data.sh", {
-    app_image            = var.app_image
-    neon_database_url    = var.neon_database_url
-    newrelic_license_key = var.newrelic_license_key
-    jwt_secret           = var.jwt_secret
+    jwt_secret = var.jwt_secret
   })
 
   tags = {
