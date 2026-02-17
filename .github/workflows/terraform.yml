@@ -82,14 +82,15 @@ jobs:
         if: github.event.inputs.action == 'apply' && github.ref == 'refs/heads/main'
         run: |
           PUBLIC_IP=$(terraform output -raw public_ip)
-          echo "============================================"
-          echo "EC2 provisionada com sucesso!"
-          echo "IP Público: $PUBLIC_IP"
-          echo "============================================"
-          echo "Após ~2 minutos, recupere o kubeconfig:"
-          echo "ssh -i ~/.ssh/oficina-key.pem ubuntu@$PUBLIC_IP cat ~/.kube/config"
-          echo "Atualize o secret KUBECONFIG nos repos dos serviços com o conteúdo acima."
-          echo "============================================"
+          echo "## ✅ Infraestrutura provisionada" >> $GITHUB_STEP_SUMMARY
+          echo "**IP Público:** \`$PUBLIC_IP\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Próximos passos" >> $GITHUB_STEP_SUMMARY
+          echo "Aguarde ~2 minutos para o K3s inicializar, depois execute:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "ssh -i ~/.ssh/oficina-key.pem ubuntu@$PUBLIC_IP 'cat /home/ubuntu/.kube/config'" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "Atualize o secret **KUBECONFIG** nos repos dos serviços com o conteúdo acima." >> $GITHUB_STEP_SUMMARY
 
       - name: Exibir informações da infraestrutura
         if: github.event.inputs.action == 'apply' || github.event.inputs.action == 'output'
