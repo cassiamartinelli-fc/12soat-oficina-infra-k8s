@@ -1,48 +1,20 @@
 #!/bin/bash
 set -e
 
-# Instalar Docker
-apt-get update
-apt-get install -y docker.io docker-compose
-systemctl start docker
-systemctl enable docker
+# Instalar K3s (Kubernetes single-node)
+curl -sfL https://get.k3s.io | sh -
 
-# Criar docker-compose.yml
-cat > /home/ubuntu/docker-compose.yml <<'EOF'
-version: '3.8'
+# Aguardar K3s estar pronto
+sleep 30
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
-services:
-  kong:
-    image: kong:3.5
-    environment:
-      KONG_DATABASE: "off"
-      KONG_PROXY_LISTEN: "0.0.0.0:8000"
-      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
-      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
-    ports:
-      - "8000:8000"
-      - "8001:8001"
-    volumes:
-      - ./kong.yml:/kong/kong.yml
-    restart: always
+# Configurar kubectl para usuário ubuntu
+mkdir -p /home/ubuntu/.kube
+cp /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config
+chown ubuntu:ubuntu /home/ubuntu/.kube/config
 
-  app:
-    image: ${app_image}
-    environment:
-      NODE_ENV: production
-      NEON_DATABASE_URL: "${neon_database_url}"
-      JWT_SECRET: "${jwt_secret}"
-      NEW_RELIC_LICENSE_KEY: "${newrelic_license_key}"
-      NEW_RELIC_APP_NAME: "Oficina Mecanica API"
-    ports:
-      - "3000:3000"
-    restart: always
-    depends_on:
-      - kong
-EOF
-
-# Criar configuração do Kong
-cat > /home/ubuntu/kong.yml <<'EOF'
+# Criar ConfigMap com config declarativa do Kong
+cat > /tmp/kong.yml <<'EOF'
 _format_version: "3.0"
 
 consumers:
@@ -53,59 +25,112 @@ consumers:
         algorithm: HS256
 
 services:
-  - name: oficina-app
-    url: http://app:3000
+  - name: os-service
+    url: http://os-service.default.svc.cluster.local:3000
     routes:
-      # Swagger/Documentação (pública)
-      - name: api-docs
-        paths:
-          - ~/api-docs
-        strip_path: false
+      - name: os-public
+        paths: [/os-service/health, /os-service/clientes, /os-service/veiculos, /os-service/pecas, /os-service/servicos, /os-service/ordens-servico]
+        methods: [GET]
+        strip_path: true
+      - name: os-protected
+        paths: [/os-service]
+        strip_path: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: key
 
-      # Rotas públicas (GET apenas)
-      - name: public-reads
-        paths:
-          - /health
-          - /clientes
-          - /veiculos
-          - /pecas
-          - /servicos
-          - /ordens-servico
-        methods:
-          - GET
-        strip_path: false
+  - name: billing-service
+    url: http://billing-service.default.svc.cluster.local:3001
+    routes:
+      - name: billing-public
+        paths: [/billing-service/health, /billing-service/orcamentos]
+        methods: [GET]
+        strip_path: true
+      - name: billing-protected
+        paths: [/billing-service]
+        strip_path: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: key
 
-      # Rota de autenticação (pública)
-      - name: auth-route
-        paths:
-          - /auth
-        methods:
-          - POST
-        strip_path: false
-
-      # Rotas protegidas (POST, PATCH, DELETE)
-      - name: protected-writes
-        paths:
-          - /clientes
-          - /veiculos
-          - /pecas
-          - /servicos
-          - /ordens-servico
-        methods:
-          - POST
-          - PATCH
-          - DELETE
-        strip_path: false
+  - name: production-service
+    url: http://production-service.default.svc.cluster.local:3002
+    routes:
+      - name: production-public
+        paths: [/production-service/health, /production-service/execucoes]
+        methods: [GET]
+        strip_path: true
+      - name: production-protected
+        paths: [/production-service]
+        strip_path: true
         plugins:
           - name: jwt
             config:
               key_claim_name: key
 EOF
 
-# Iniciar containers
-cd /home/ubuntu
-docker-compose pull
-docker-compose up -d
+kubectl create configmap kong-config --from-file=kong.yml=/tmp/kong.yml --dry-run=client -o yaml | kubectl apply -f -
 
-# Log de inicialização
-echo "Docker Compose iniciado em $(date)" > /var/log/user-data.log
+# Deploy Kong Gateway
+kubectl apply -f - <<'YAML'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong-gateway
+  template:
+    metadata:
+      labels:
+        app: kong-gateway
+    spec:
+      containers:
+      - name: kong
+        image: kong:3.5
+        env:
+        - name: KONG_DATABASE
+          value: "off"
+        - name: KONG_DECLARATIVE_CONFIG
+          value: /kong/kong.yml
+        - name: KONG_PROXY_LISTEN
+          value: "0.0.0.0:8000"
+        - name: KONG_ADMIN_LISTEN
+          value: "0.0.0.0:8001"
+        - name: KONG_PLUGINS
+          value: "bundled,jwt"
+        ports:
+        - containerPort: 8000
+        - containerPort: 8001
+        volumeMounts:
+        - name: kong-config
+          mountPath: /kong
+      volumes:
+      - name: kong-config
+        configMap:
+          name: kong-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-gateway
+spec:
+  type: NodePort
+  selector:
+    app: kong-gateway
+  ports:
+  - name: proxy
+    port: 8000
+    targetPort: 8000
+    nodePort: 30080
+  - name: admin
+    port: 8001
+    targetPort: 8001
+    nodePort: 30081
+YAML
+
+echo "K3s + Kong iniciados em $(date)" > /var/log/user-data.log
