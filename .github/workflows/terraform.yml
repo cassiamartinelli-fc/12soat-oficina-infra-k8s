@@ -115,11 +115,12 @@ jobs:
           sleep 180
           echo "| Serviço | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          # Verificar K3s API
-          if curl -sk --max-time 5 "https://$PUBLIC_IP:6443/healthz" | grep -q "ok"; then
-            echo "| K3s API | ✅ OK |" >> $GITHUB_STEP_SUMMARY
+          # Verificar K3s API (401 = acessível mas requer auth = OK)
+          K3S_CODE=$(curl -sk --max-time 5 -o /dev/null -w "%{http_code}" "https://$PUBLIC_IP:6443/healthz")
+          if [ "$K3S_CODE" = "401" ] || [ "$K3S_CODE" = "200" ]; then
+            echo "| K3s API | ✅ OK (HTTP $K3S_CODE) |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| K3s API | ❌ Não acessível |" >> $GITHUB_STEP_SUMMARY
+            echo "| K3s API | ❌ Não acessível (HTTP $K3S_CODE) |" >> $GITHUB_STEP_SUMMARY
           fi
           # Verificar Kong
           if curl -s --max-time 5 "http://$PUBLIC_IP:30080" | grep -q -v "Connection refused"; then
