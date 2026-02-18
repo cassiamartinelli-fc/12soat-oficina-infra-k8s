@@ -1,132 +1,82 @@
-# Oficina Mecânica — Infraestrutura Cloud
+# Oficina Mecânica — Infraestrutura K8s (Fase 4)
 
-Infraestrutura AWS com Kong Gateway e New Relic para API Gateway e observabilidade.
+Infraestrutura AWS com K3s (Kubernetes single-node) e Kong Gateway para os microsserviços da Fase 4.
 
-## 🎯 Propósito
+## Tecnologias
 
-Provisionar infraestrutura na AWS (EC2 + Docker Compose) com Kong Gateway e monitoramento New Relic.
+- **AWS EC2 t3.small** — Instância Ubuntu 22.04 com K3s
+- **K3s** — Kubernetes single-node (leve, custo reduzido)
+- **Kong Gateway** — API Gateway com validação JWT (modo declarativo, sem banco)
+- **Terraform** — Infraestrutura como código (estado remoto no S3)
 
-## 🛠️ Tecnologias
-
-- **AWS EC2** - Instância t3.small (Ubuntu 22.04)
-- **Docker Compose** - Orquestração de containers
-- **Kong Gateway** - API Gateway
-- **New Relic** - APM e monitoramento
-- **Terraform** - Infraestrutura como código
-- **Elastic IP** - IP público persistente
-
-## 📊 Infraestrutura
+## Arquitetura
 
 ```
-AWS EC2 (t3.small)
-├── Kong Gateway (porta 8000)
-├── Aplicação NestJS (porta 3000)
-└── Docker Compose
+Cliente
+   │ HTTP :30080
+   ▼
+EC2 t3.small
+├── K3s (Kubernetes)
+│   ├── Kong Gateway (NodePort 30080)
+│   │   ├── /os-service/*        → os-service:3000 (JWT para POST/PUT/PATCH/DELETE)
+│   │   ├── /billing-service/*   → billing-service:3001 (JWT para POST/PUT/PATCH/DELETE)
+│   │   └── /production-service/*→ production-service:3002 (JWT para POST/PUT/PATCH/DELETE)
+│   ├── os-service (ClusterIP :3000)
+│   ├── billing-service (ClusterIP :3001)
+│   └── production-service (ClusterIP :3002)
+└── K3s API Server (:6443, para kubectl remoto)
 ```
 
-## 🚀 Setup
+## Setup via GitHub Actions
 
-A infraestrutura AWS (EC2 + Kong + New Relic) é provisionada via GitHub Actions.
-
-**Passos para provisionar:**
-
-1. Provisionar infraestrutura:
-   ```
-   Actions → Terraform AWS → Run workflow → apply
-   ```
-   Aguardar ~3 minutos para containers iniciarem.
-
-2. Obter URL pública:
-   ```
-   Actions → Terraform AWS → Run workflow → output
-   ```
-   Copiar a URL do Kong Gateway exibida nos logs.
-
-3. Testar:
-   ```bash
-   curl <URL_OBTIDA>/health
-   ```
-
-**Para provisionar localmente:**
-
-📖 Ver [Documentação Terraform](terraform/README.md)
-
-## ⚙️ Workflow (GitHub Actions)
-
-### Terraform AWS
+### Provisionar infraestrutura
 
 ```
-Actions → Terraform AWS → Run workflow
-Escolher: plan | apply | output | destroy
+Actions → Terraform AWS → Run workflow → action: apply
 ```
 
-- **plan** — Valida a configuração Terraform
-- **apply** — Provisiona infraestrutura AWS (EC2 + Kong + Docker)
-- **output** — Exibe URL pública atual do Kong Gateway
-- **destroy** — Deleta a infraestrutura (economia de custos)
+Aguardar ~3 minutos para K3s e Kong iniciarem.
 
-**Observação:** Execute `output` sempre que precisar da URL pública, pois o IP muda a cada ciclo destroy/apply.
+### Obter IP público e kubeconfig
 
-## 🧪 Validação
+Após o apply, o summary da Action exibe o IP público e instruções para obter o kubeconfig:
 
 ```bash
-# 1. Obter URL via workflow output ou terraform
-terraform output -raw kong_url
-
-# 2. Health check
-curl <URL_OBTIDA>/health
-
-# Resposta esperada:
-{"status":"ok","timestamp":"...","environment":"production"}
+ssh -i ~/.ssh/oficina-key.pem ubuntu@<EC2_IP> 'cat /home/ubuntu/.kube/config'
 ```
 
-## 📄 Arquitetura
+Salvar o conteúdo como secret **KUBECONFIG** nos repos dos serviços.
+
+### Destruir infraestrutura (economia de custos)
 
 ```
-┌─────────────┐
-│   Cliente   │
-└──────┬──────┘
-       │ HTTP
-       ▼
-┌──────────────────────┐
-│   AWS EC2 (t3.small) │
-│  ┌─────────────────┐ │
-│  │  Kong Gateway   │ │ :8000
-│  │  (Docker)       │ │
-│  └────────┬────────┘ │
-│           │          │
-│           ▼          │
-│  ┌─────────────────┐ │
-│  │  NestJS App     │ │ :3000
-│  │  (Docker)       │ │
-│  │  - New Relic    │ │
-│  └────────┬────────┘ │
-└───────────┼──────────┘
-            │
-            ▼
-   ┌─────────────────┐
-   │ Neon PostgreSQL │
-   └─────────────────┘
+Actions → Terraform AWS → Run workflow → action: destroy
 ```
 
-## 🔐 CI/CD — Secrets e permissões
+## Secrets necessários (Settings → Secrets → Actions)
 
-✅ **Todos os secrets já estão devidamente configurados neste repositório.**
+| Secret | Descrição |
+|--------|-----------|
+| `AWS_ACCESS_KEY_ID` | AWS Access Key |
+| `AWS_SECRET_ACCESS_KEY` | AWS Secret Key |
+| `JWT_SECRET` | Chave secreta para validação JWT no Kong |
 
-**Secrets necessários (Settings → Secrets → Actions):**
-- `AWS_ACCESS_KEY_ID` — AWS Access Key
-- `AWS_SECRET_ACCESS_KEY` — AWS Secret Key
-- `NEON_DATABASE_URL` — Connection string do PostgreSQL (Neon)
-- `NEWRELIC_LICENSE_KEY` — License key do New Relic
-- `JWT_SECRET` — Chave secreta para JWT
+## Validação após deploy
 
-## 🔗 Recursos
+```bash
+# Verificar K3s e Kong
+curl http://<EC2_IP>:30080/os-service/health
+curl http://<EC2_IP>:30080/billing-service/health
+curl http://<EC2_IP>:30080/production-service/health
+```
 
-- **Repositórios relacionados**:
-  - [12soat-oficina-app](https://github.com/cassiamartinelli-fc/12soat-oficina-app)
-  - [12soat-oficina-lambda-auth](https://github.com/cassiamartinelli-fc/12soat-oficina-lambda-auth)
-  - [12soat-oficina-infra-database](https://github.com/cassiamartinelli-fc/12soat-oficina-infra-database)
+## Repositórios relacionados
 
-## 📄 Licença
+- [12soat-oficina-os-service](https://github.com/cassiamartinelli-fc/12soat-oficina-os-service)
+- [12soat-oficina-billing-service](https://github.com/cassiamartinelli-fc/12soat-oficina-billing-service)
+- [12soat-oficina-production-service](https://github.com/cassiamartinelli-fc/12soat-oficina-production-service)
+- [12soat-oficina-lambda-auth](https://github.com/cassiamartinelli-fc/12soat-oficina-lambda-auth)
 
-MIT — Tech Challenge 12SOAT Fase 3
+## Licença
+
+MIT — Tech Challenge 12SOAT Fase 4
