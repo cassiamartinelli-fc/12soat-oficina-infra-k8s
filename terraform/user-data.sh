@@ -25,7 +25,8 @@ sed "s|server: https://.*:6443|server: https://$PUBLIC_IP:6443|g" /etc/rancher/k
 chown ubuntu:ubuntu /home/ubuntu/.kube/config
 
 # Criar config declarativa do Kong
-# Nota: usar EOF sem aspas para permitir interpolação do jwt_secret
+JWT_SECRET="${jwt_secret}"
+
 cat > /tmp/kong.yml <<EOF
 _format_version: "3.0"
 
@@ -33,7 +34,7 @@ consumers:
   - username: oficina-client
     jwt_secrets:
       - key: oficina-mecanica-secret-key-2025
-        secret: ${jwt_secret}
+        secret: $JWT_SECRET
         algorithm: HS256
 
 services:
@@ -41,11 +42,12 @@ services:
     url: http://os-service.default.svc.cluster.local:3000
     routes:
       - name: os-public
-        paths: [/os-service/health]
+        paths: [/os-service]
         methods: [GET]
         strip_path: true
       - name: os-protected
         paths: [/os-service]
+        methods: [POST, PUT, PATCH, DELETE]
         strip_path: true
         plugins:
           - name: jwt
@@ -56,11 +58,12 @@ services:
     url: http://billing-service.default.svc.cluster.local:3001
     routes:
       - name: billing-public
-        paths: [/billing-service/health]
+        paths: [/billing-service]
         methods: [GET]
         strip_path: true
       - name: billing-protected
         paths: [/billing-service]
+        methods: [POST, PUT, PATCH, DELETE]
         strip_path: true
         plugins:
           - name: jwt
@@ -71,11 +74,12 @@ services:
     url: http://production-service.default.svc.cluster.local:3002
     routes:
       - name: production-public
-        paths: [/production-service/health]
+        paths: [/production-service]
         methods: [GET]
         strip_path: true
       - name: production-protected
         paths: [/production-service]
+        methods: [POST, PUT, PATCH, DELETE]
         strip_path: true
         plugins:
           - name: jwt
