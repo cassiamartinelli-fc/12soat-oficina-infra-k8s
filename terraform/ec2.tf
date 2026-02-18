@@ -55,19 +55,12 @@ resource "aws_security_group" "oficina" {
   }
 }
 
-# Elastic IP
-resource "aws_eip" "oficina" {
-  domain = "vpc"
-  tags = {
-    Name = "oficina-eip"
-  }
-}
-
 # EC2 Instance
 resource "aws_instance" "oficina" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = var.instance_type
-  key_name      = "oficina-key"
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = var.instance_type
+  key_name                    = "oficina-key"
+  associate_public_ip_address = true
 
   vpc_security_group_ids = [aws_security_group.oficina.id]
 
@@ -78,12 +71,6 @@ resource "aws_instance" "oficina" {
   tags = {
     Name = "oficina-mecanica"
   }
-}
-
-# Associar Elastic IP
-resource "aws_eip_association" "oficina" {
-  instance_id   = aws_instance.oficina.id
-  allocation_id = aws_eip.oficina.id
 }
 
 # AMI Ubuntu mais recente

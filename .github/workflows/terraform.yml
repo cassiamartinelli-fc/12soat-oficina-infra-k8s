@@ -83,14 +83,50 @@ jobs:
         run: |
           PUBLIC_IP=$(terraform output -raw public_ip)
           echo "## ✅ Infraestrutura provisionada" >> $GITHUB_STEP_SUMMARY
-          echo "**IP Público:** \`$PUBLIC_IP\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **IP Público** | \`$PUBLIC_IP\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Kong Gateway** | \`http://$PUBLIC_IP:30080\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **K3s API** | \`https://$PUBLIC_IP:6443\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Próximos passos" >> $GITHUB_STEP_SUMMARY
-          echo "Aguarde ~2 minutos para o K3s inicializar, depois execute:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**1.** Aguarde ~3 minutos para K3s e Kong iniciarem" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**2.** Obtenha o kubeconfig:" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "ssh -i ~/.ssh/oficina-key.pem ubuntu@$PUBLIC_IP 'cat /home/ubuntu/.kube/config'" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "Atualize o secret **KUBECONFIG** nos repos dos serviços com o conteúdo acima." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**3.** Atualize o secret **KUBECONFIG** em todos os repos dos serviços:" >> $GITHUB_STEP_SUMMARY
+          echo "- 12soat-oficina-os-service" >> $GITHUB_STEP_SUMMARY
+          echo "- 12soat-oficina-billing-service" >> $GITHUB_STEP_SUMMARY
+          echo "- 12soat-oficina-production-service" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**4.** Valide o deploy após rodar as pipelines dos serviços:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "curl http://$PUBLIC_IP:30080/os-service/health" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Validação da infraestrutura" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Aguardando K3s e Kong ficarem prontos (~3 min)..." >> $GITHUB_STEP_SUMMARY
+          sleep 180
+          echo "| Serviço | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          # Verificar K3s API
+          if curl -sk --max-time 5 "https://$PUBLIC_IP:6443/healthz" | grep -q "ok"; then
+            echo "| K3s API | ✅ OK |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| K3s API | ❌ Não acessível |" >> $GITHUB_STEP_SUMMARY
+          fi
+          # Verificar Kong
+          if curl -s --max-time 5 "http://$PUBLIC_IP:30080" | grep -q -v "Connection refused"; then
+            echo "| Kong Gateway | ✅ OK |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Kong Gateway | ❌ Não acessível |" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Exibir informações da infraestrutura
         if: github.event.inputs.action == 'apply' || github.event.inputs.action == 'output'
