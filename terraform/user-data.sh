@@ -21,7 +21,7 @@ done
 
 # Gerar kubeconfig com IP público (para uso externo via kubectl)
 mkdir -p /home/ubuntu/.kube
-sed "s/127.0.0.1/$PUBLIC_IP/g" /etc/rancher/k3s/k3s.yaml > /home/ubuntu/.kube/config
+sed "s|server: https://.*:6443|server: https://$PUBLIC_IP:6443|g" /etc/rancher/k3s/k3s.yaml > /home/ubuntu/.kube/config
 chown ubuntu:ubuntu /home/ubuntu/.kube/config
 
 # Criar config declarativa do Kong
