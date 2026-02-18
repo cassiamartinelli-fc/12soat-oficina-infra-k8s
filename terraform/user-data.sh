@@ -1,24 +1,32 @@
 #!/bin/bash
-set -e
+set -ex
+exec > /var/log/user-data.log 2>&1
 
 # Obter IP público da EC2
 PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 
 # Instalar K3s com IP público no certificado TLS
-curl -sfL https://get.k3s.io | sh -s - \
-  --tls-san "$PUBLIC_IP"
+curl -sfL https://get.k3s.io | sh -s - --tls-san "$PUBLIC_IP"
 
-# Aguardar K3s estar pronto
-sleep 30
+# Aguardar K3s estar pronto (até 3 minutos)
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+for i in $(seq 1 18); do
+  if kubectl get nodes 2>/dev/null | grep -q "Ready"; then
+    echo "K3s pronto!"
+    break
+  fi
+  echo "Aguardando K3s... tentativa $i/18"
+  sleep 10
+done
 
 # Gerar kubeconfig com IP público (para uso externo via kubectl)
 mkdir -p /home/ubuntu/.kube
 sed "s/127.0.0.1/$PUBLIC_IP/g" /etc/rancher/k3s/k3s.yaml > /home/ubuntu/.kube/config
 chown ubuntu:ubuntu /home/ubuntu/.kube/config
 
-# Criar ConfigMap com config declarativa do Kong
-cat > /tmp/kong.yml <<'EOF'
+# Criar config declarativa do Kong
+# Nota: usar EOF sem aspas para permitir interpolação do jwt_secret
+cat > /tmp/kong.yml <<EOF
 _format_version: "3.0"
 
 consumers:
@@ -33,7 +41,7 @@ services:
     url: http://os-service.default.svc.cluster.local:3000
     routes:
       - name: os-public
-        paths: [/os-service/health, /os-service/clientes, /os-service/veiculos, /os-service/pecas, /os-service/servicos, /os-service/ordens-servico]
+        paths: [/os-service/health]
         methods: [GET]
         strip_path: true
       - name: os-protected
@@ -48,7 +56,7 @@ services:
     url: http://billing-service.default.svc.cluster.local:3001
     routes:
       - name: billing-public
-        paths: [/billing-service/health, /billing-service/orcamentos]
+        paths: [/billing-service/health]
         methods: [GET]
         strip_path: true
       - name: billing-protected
@@ -63,7 +71,7 @@ services:
     url: http://production-service.default.svc.cluster.local:3002
     routes:
       - name: production-public
-        paths: [/production-service/health, /production-service/execucoes]
+        paths: [/production-service/health]
         methods: [GET]
         strip_path: true
       - name: production-protected
@@ -78,7 +86,7 @@ EOF
 kubectl create configmap kong-config --from-file=kong.yml=/tmp/kong.yml --dry-run=client -o yaml | kubectl apply -f -
 
 # Deploy Kong Gateway
-kubectl apply -f - <<'YAML'
+kubectl apply -f - <<YAML
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -137,4 +145,4 @@ spec:
     nodePort: 30081
 YAML
 
-echo "K3s + Kong iniciados em $(date)" > /var/log/user-data.log
+echo "K3s + Kong iniciados com sucesso em $(date)"
