@@ -90,7 +90,7 @@ Infraestrutura AWS com K3s e Kong Gateway para arquitetura de microsserviços co
 
 ### Diagrama da Arquitetura
 
-[Diagrama da Arquitetura](https://github.com/cassiamartinelli-fc/12soat-oficina-app/blob/main/documentacao-arquitetural.pdf)
+[Diagrama da Arquitetura](https://github.com/cassiamartinelli-fc/12soat-oficina-infra-k8s/blob/main/arquitetura_diagrama.pdf)
 
 ### Decisões Arquiteturais
 
