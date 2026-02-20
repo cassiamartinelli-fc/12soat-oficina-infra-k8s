@@ -11,12 +11,9 @@ Infraestrutura AWS com K3s e Kong Gateway para arquitetura de microsserviços co
 - [📊 Microsserviços](#-microsserviços)
 - [🔄 Saga Pattern](#-saga-pattern)
 - [💳 Integração Mercado Pago](#-integração-mercado-pago)
-- [🗄️ Bancos de Dados](#️-bancos-de-dados)
-- [📡 Comunicação entre Serviços](#-comunicação-entre-serviços)
 - [🔐 Autenticação JWT](#-autenticação-jwt)
 - [⚙️ Comandos Essenciais](#️-comandos-essenciais)
 - [🧪 Testes e Qualidade](#-testes-e-qualidade)
-- [📈 Observabilidade](#-observabilidade)
 - [🔧 CI/CD](#-cicd)
 - [📝 Licença](#-licença)
 
@@ -80,7 +77,7 @@ Infraestrutura AWS com K3s e Kong Gateway para arquitetura de microsserviços co
                      │
                      ▼
               ┌──────────────┐
-              │     SQS      │
+              │   AWS SQS    │
               │ (Mensageria) │
               └──────────────┘
                      │
@@ -90,6 +87,10 @@ Infraestrutura AWS com K3s e Kong Gateway para arquitetura de microsserviços co
               │(Observability)│
               └───────────────┘
 ```
+
+### Diagrama da Arquitetura
+
+[Diagrama da Arquitetura](https://github.com/cassiamartinelli-fc/12soat-oficina-app/blob/main/documentacao-arquitetural.pdf)
 
 ### Decisões Arquiteturais
 
@@ -107,7 +108,7 @@ Infraestrutura AWS com K3s e Kong Gateway para arquitetura de microsserviços co
 - **K3s** — Kubernetes single-node (leve, produtivo)
 - **Kong Gateway** — API Gateway com JWT (modo declarativo)
 - **Terraform** — IaC com estado remoto S3
-- **RabbitMQ** — Message broker para comunicação assíncrona
+- **SQS** — Serviço de fila para comunicação assíncrona
 
 ### Microsserviços
 - **NestJS** — Framework Node.js com TypeScript
@@ -133,7 +134,8 @@ Infraestrutura AWS com K3s e Kong Gateway para arquitetura de microsserviços co
 
 1.2. Obter informações da infraestrutura:
 ```bash
-# Execute workflow: Terraform AWS → output
+# Consulte o Summary do workflow: Terraform AWS → apply
+# Ou execute workflow: Terraform AWS → output
 # Ou via terraform local:
 cd terraform
 terraform output kong_url
@@ -160,44 +162,56 @@ ssh -i ~/.ssh/oficina-key.pem ubuntu@<PUBLIC_IP> 'cat /home/ubuntu/.kube/config'
 **Repositório:** [12soat-oficina-os-service](https://github.com/cassiamartinelli-fc/12soat-oficina-os-service)
 
 ```bash
-# Execute workflow: Deploy to K3s
+# Execute workflow: CI/CD - OS Service
 ```
 
 **Secrets necessários:**
-- `KUBECONFIG` — Obtido no Passo 1.3
-- `MONGODB_URI` — Connection string MongoDB Atlas
-- `RABBITMQ_URL` — URL do RabbitMQ (CloudAMQP ou local)
-- `NEW_RELIC_LICENSE_KEY` — License key New Relic
-- `JWT_SECRET` — Mesma chave usada na infraestrutura
+- `AWS_ACCESS_KEY_ID`: AWS Access Key
+- `AWS_SECRET_ACCESS_KEY`: AWS Secret Key
+- `KUBECONFIG`: Obtido no Passo 1.3
+- `OS_DATABASE_URL`: Connection string PostgreSQL (Neon)
+- `SONAR_TOKEN`:  Token do Sonar
+- `SQS_BILLING_QUEUE_URL`: URL da fila SQS de Billing Service
+- `SQS_OS_QUEUE_URL`: URL da fila SQS de OS Service
+- `NEW_RELIC_LICENSE_KEY`: License key New Relic
 
 #### 2.2. Billing Service
 **Repositório:** [12soat-oficina-billing-service](https://github.com/cassiamartinelli-fc/12soat-oficina-billing-service)
 
 ```bash
-# Execute workflow: Deploy to K3s
+# Execute workflow: CI/CD - Billing Service
 ```
 
 **Secrets necessários:**
+- `AWS_ACCESS_KEY_ID` — AWS Access Key
+- `AWS_SECRET_ACCESS_KEY` — AWS Secret Key
 - `KUBECONFIG` — Obtido no Passo 1.3
-- `NEON_DATABASE_URL` — Connection string PostgreSQL (Neon)
-- `RABBITMQ_URL` — URL do RabbitMQ (mesma do OS Service)
-- `MERCADO_PAGO_ACCESS_TOKEN` — Token de acesso Mercado Pago
-- `NEW_RELIC_LICENSE_KEY` — License key New Relic
-- `JWT_SECRET` — Mesma chave usada na infraestrutura
+- `MONGODB_URI` — Connection string MongoDB Atlas
+- `SONAR_TOKEN`:  Token do Sonar
+- `SQS_BILLING_QUEUE_URL`: URL da fila SQS de Billing Service
+- `SQS_OS_QUEUE_URL`: URL da fila SQS de OS Service
+- `SQS_PRODUCTION_QUEUE_URL`: URL da fila SQS de OS Production
+- `MERCADO_PAGO_ACCESS_TOKEN`: Token de acesso Mercado Pago
+- `NEW_RELIC_LICENSE_KEY`: License key New Relic
 
 #### 2.3. Production Service
 **Repositório:** [12soat-oficina-production-service](https://github.com/cassiamartinelli-fc/12soat-oficina-production-service)
 
 ```bash
-# Execute workflow: Deploy to K3s
+# Execute workflow: CI/CD - Production Service
 ```
 
 **Secrets necessários:**
+- `AWS_ACCESS_KEY_ID` — AWS Access Key
+- `AWS_SECRET_ACCESS_KEY` — AWS Secret Key
+- `DATABASE_URL`: Connection string PostgreSQL (Neon)
 - `KUBECONFIG` — Obtido no Passo 1.3
+- `SONAR_TOKEN`:  Token do Sonar
+- `SQS_OS_QUEUE_URL`: URL da fila SQS de OS Service
+- `SQS_PRODUCTION_QUEUE_URL`: URL da fila SQS de OS Production
 - `NEON_DATABASE_URL` — Connection string PostgreSQL (Neon)
 - `RABBITMQ_URL` — URL do RabbitMQ (mesma dos outros serviços)
 - `NEW_RELIC_LICENSE_KEY` — License key New Relic
-- `JWT_SECRET` — Mesma chave usada na infraestrutura
 
 ### Passo 3: Deploy Lambda de Autenticação
 
@@ -208,10 +222,10 @@ ssh -i ~/.ssh/oficina-key.pem ubuntu@<PUBLIC_IP> 'cat /home/ubuntu/.kube/config'
 ```
 
 **Secrets necessários:**
-- `AWS_ACCESS_KEY_ID` — AWS Access Key
-- `AWS_SECRET_ACCESS_KEY` — AWS Secret Key
-- `NEON_DATABASE_URL` — Connection string PostgreSQL (Neon)
-- `JWT_SECRET` — Mesma chave usada na infraestrutura
+- `AWS_ACCESS_KEY_ID`: AWS Access Key
+- `AWS_SECRET_ACCESS_KEY`: AWS Secret Key
+- `NEON_DATABASE_URL`: Connection string PostgreSQL (Neon)
+- `JWT_SECRET`: Mesma chave usada na infraestrutura
 
 ### Passo 4: Validação do Deploy
 
@@ -237,7 +251,7 @@ curl <KONG_URL>
 - Consulta de status e histórico
 - Orquestração do fluxo Saga
 
-**Banco de Dados:** MongoDB (NoSQL)
+**Banco de Dados:** PostgreSQL (SQL)
 
 **Endpoints principais:**
 - `POST /ordens-servico` — Criar OS (inicia Saga)
@@ -258,7 +272,7 @@ curl <KONG_URL>
 - Registro e verificação de pagamentos
 - Atualização de status da OS após pagamento
 
-**Banco de Dados:** PostgreSQL (SQL)
+**Banco de Dados:** MongoDB (NoSQL)
 
 **Endpoints principais:**
 - `POST /orcamentos` — Criar orçamento
@@ -279,7 +293,7 @@ curl <KONG_URL>
 **Responsabilidades:**
 - Gerenciar fila de execução
 - Atualizar status durante diagnóstico
-- Controlar reparos e execução
+- Controlar execução
 - Comunicar finalização ao OS Service
 
 **Banco de Dados:** PostgreSQL (SQL)
@@ -297,6 +311,12 @@ curl <KONG_URL>
 - `execucao.iniciada` — Execução iniciada
 - `execucao.finalizada` — Serviço concluído
 - `execucao.falhada` — Erro na execução (compensação)
+
+### Regra de Isolamento
+
+**Nenhum serviço acessa diretamente o banco de outro.** Toda comunicação ocorre via:
+- APIs REST (síncronas)
+- Mensageria AWS SQS (assíncronas)
 
 ## 🔄 Saga Pattern
 
@@ -332,28 +352,13 @@ O **OS Service** atua como orquestrador central, coordenando o fluxo:
 4. Production Service ignora (não iniciou execução)
 ```
 
-**Cenário 2: Falha na Execução**
-```
-1. Production Service detecta erro durante reparo
-2. Publica evento execucao.falhada
-3. OS Service consome e atualiza status para EM_DIAGNOSTICO
-4. Billing Service pode gerar novo orçamento se necessário
-```
-
-**Cenário 3: Cliente Rejeita Orçamento**
+**Cenário 2: Cliente Rejeita Orçamento**
 ```
 1. Billing Service registra rejeição
 2. Publica evento orcamento.rejeitado
 3. OS Service atualiza status para CANCELADA
 4. Nenhum pagamento é processado
 ```
-
-### Garantias de Consistência
-
-- **Idempotência:** Todos os handlers de eventos são idempotentes
-- **Retry automático:** RabbitMQ com Dead Letter Queue (DLQ)
-- **Timeouts:** Cada etapa possui timeout configurado
-- **Auditoria:** Todos os eventos são registrados no New Relic
 
 ## 💳 Integração Mercado Pago
 
@@ -381,93 +386,6 @@ POST <KONG_URL>/billing-service/pagamentos/webhook
 ```
 
 **Documentação oficial:** https://www.mercadopago.com.br/developers/pt/docs
-
-## 🗄️ Bancos de Dados
-
-### OS Service — MongoDB (NoSQL)
-
-**Justificativa:**
-- Esquema flexível para diferentes tipos de veículos e serviços
-- Alto volume de leitura (consultas de status)
-- Histórico de mudanças armazenado como documento
-
-**Collections:**
-- `ordens_servico` — Dados da OS
-- `historico_status` — Transições de status
-
-**Provider:** MongoDB Atlas (gerenciado)
-
-### Billing Service — PostgreSQL (SQL)
-
-**Justificativa:**
-- Transações ACID críticas para pagamentos
-- Relacionamentos entre orçamentos, itens e pagamentos
-- Integridade referencial obrigatória
-
-**Tabelas:**
-- `orcamentos` — Dados do orçamento
-- `itens_orcamento` — Peças e serviços
-- `pagamentos` — Registro de pagamentos
-
-**Provider:** Neon (PostgreSQL gerenciado)
-
-### Production Service — PostgreSQL (SQL)
-
-**Justificativa:**
-- Controle de fila com priorização
-- Registro de tempo de execução (SLA)
-- Relacionamentos entre OS e etapas de produção
-
-**Tabelas:**
-- `execucoes` — Fila de execução
-- `diagnosticos` — Resultados de diagnóstico
-- `reparos` — Registro de reparos realizados
-
-**Provider:** Neon (PostgreSQL gerenciado)
-
-### Regra de Isolamento
-
-**Nenhum serviço acessa diretamente o banco de outro.** Toda comunicação ocorre via:
-- APIs REST (síncronas)
-- Mensageria RabbitMQ (assíncronas)
-
-## 📡 Comunicação entre Serviços
-
-### Síncrona (REST API)
-
-**Quando usar:**
-- Consultas simples e rápidas
-- Necessidade de resposta imediata
-- Validações em tempo real
-
-**Exemplos:**
-- Cliente consulta status de OS via Kong → OS Service
-- Production Service consulta dados de orçamento via Billing Service
-
-### Assíncrona (RabbitMQ)
-
-**Quando usar:**
-- Processos longos (pagamento, execução)
-- Desacoplamento entre serviços
-- Necessidade de retry e tolerância a falhas
-
-**Eventos principais:**
-
-| Evento | Publisher | Consumer |
-|--------|-----------|----------|
-| `os.criada` | OS Service | Billing Service |
-| `orcamento.criado` | Billing Service | OS Service |
-| `pagamento.aprovado` | Billing Service | Production Service |
-| `execucao.finalizada` | Production Service | OS Service |
-| `*.compensacao` | Qualquer | OS Service (orquestrador) |
-
-**Configuração RabbitMQ:**
-- Exchange: `oficina.events` (topic)
-- Queues: `os-service-queue`, `billing-service-queue`, `production-service-queue`
-- DLQ (Dead Letter Queue) para mensagens falhadas
-- TTL: 30 segundos para retry automático
-
-**Provider:** CloudAMQP (gerenciado)
 
 ## 🔐 Autenticação JWT
 
@@ -545,46 +463,6 @@ curl <KONG_URL>/os-service/health
 curl <KONG_URL>/billing-service/health
 curl <KONG_URL>/production-service/health
 
-# Listar OS
-curl <KONG_URL>/os-service/ordens-servico
-
-# Obter orçamento por OS
-curl <KONG_URL>/billing-service/orcamentos/os/12345
-
-# Verificar fila de execução
-curl <KONG_URL>/production-service/execucoes/fila
-```
-
-### Criar OS Completa (com autenticação)
-
-```bash
-# 1. Obter token
-TOKEN=$(curl -X POST <LAMBDA_URL> \
-  -H "Content-Type: application/json" \
-  -d '{"cpf":"12345678900"}' | jq -r '.token')
-
-# 2. Criar OS
-OS_ID=$(curl -X POST <KONG_URL>/os-service/ordens-servico \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "clienteId": "123",
-    "veiculoId": "456",
-    "descricao": "Revisão completa",
-    "servicos": ["Troca de óleo", "Balanceamento"]
-  }' | jq -r '.id')
-
-# 3. Verificar orçamento (gerado automaticamente via Saga)
-curl <KONG_URL>/billing-service/orcamentos/os/$OS_ID
-
-# 4. Aprovar orçamento e processar pagamento
-curl -X POST <KONG_URL>/billing-service/orcamentos/$OS_ID/aprovar \
-  -H "Authorization: Bearer $TOKEN"
-
-# 5. Acompanhar execução
-curl <KONG_URL>/production-service/execucoes/os/$OS_ID
-```
-
 ### Acesso SSH e Logs
 
 ```bash
@@ -599,10 +477,6 @@ kubectl logs -f deployment/os-service
 kubectl logs -f deployment/billing-service
 kubectl logs -f deployment/production-service
 kubectl logs -f deployment/kong-gateway
-
-# Verificar RabbitMQ (se rodando no cluster)
-kubectl port-forward svc/rabbitmq 15672:15672
-# Acessar: http://localhost:15672
 ```
 
 ### Destruir Infraestrutura
@@ -673,7 +547,7 @@ Feature: Criação de Ordem de Serviço com Saga
 **Executar testes BDD:**
 ```bash
 # No repositório OS Service
-npm run test:e2e
+npx cucumber-js
 ```
 
 ### Validação de Qualidade (SonarQube)
@@ -684,88 +558,17 @@ npm run test:e2e
 - Verificação de duplicação
 - Análise de segurança
 
-**Verificar no GitHub Actions:**
-```
-Actions → CI/CD → Ver step "SonarQube Analysis"
-```
-
 ### Evidências de Cobertura
 
 **Links nos READMEs de cada serviço:**
-- OS Service: `coverage/` → ver prints no README
-- Billing Service: `coverage/` → ver prints no README
-- Production Service: `coverage/` → ver prints no README
+- OS Service: `coverage/`
+![os service coverage](images/image-3.png)
 
-## 📈 Observabilidade
+- Billing Service: `coverage/`
+![billing service coverage](images/image-1.png)
 
-### New Relic APM
-
-**Dashboards implementados:**
-
-#### Performance
-- Latência média por endpoint
-- Throughput (requisições/minuto)
-- Uso de CPU e memória por serviço
-- Tempo de resposta do banco de dados
-
-#### Métricas de Negócio
-- OS criadas (últimas 24h)
-- Taxa de conversão de orçamentos
-- Tempo médio de execução por tipo de serviço
-- Taxa de pagamentos aprovados vs recusados
-
-#### Saga Pattern
-- Tempo total do fluxo Saga (criação → finalização)
-- Taxa de compensação (% de Sagas revertidas)
-- Eventos por tipo (os.criada, pagamento.aprovado, etc.)
-- Latência de processamento de eventos
-
-#### Erros e Disponibilidade
-- Taxa de erro por serviço (%)
-- Disponibilidade (uptime %)
-- Erros de integração (Mercado Pago, RabbitMQ)
-- Mensagens na Dead Letter Queue
-
-### Custom Events
-
-**Registrados no New Relic:**
-
-```javascript
-// OS Service
-newrelic.recordCustomEvent('OrdemServicoCriada', {
-  osId: '12345',
-  clienteId: '123',
-  valorEstimado: 500.00
-})
-
-// Billing Service
-newrelic.recordCustomEvent('PagamentoProcessado', {
-  osId: '12345',
-  valor: 500.00,
-  status: 'aprovado',
-  metodoPagamento: 'mercadopago'
-})
-
-// Production Service
-newrelic.recordCustomEvent('ExecucaoFinalizada', {
-  osId: '12345',
-  tempoExecucao: 120, // minutos
-  status: 'concluida'
-})
-
-// Saga Orchestrator
-newrelic.recordCustomEvent('SagaCompensacao', {
-  osId: '12345',
-  etapaFalha: 'pagamento',
-  motivo: 'cartao_recusado'
-})
-```
-
-### Acessar Dashboards
-
-1. Login: https://one.newrelic.com
-2. APM & Services → Selecionar serviço (os-service, billing-service, production-service)
-3. Dashboards → "Oficina Mecânica - Fase 4"
+- Production Service: `coverage/`
+![production service coverage](images/image-2.png)
 
 ## 🔧 CI/CD
 
@@ -775,78 +578,7 @@ newrelic.recordCustomEvent('SagaCompensacao', {
 - Branch `main` protegida
 - Pull Request obrigatório
 - Aprovação mínima: 1 revisor
-- Checks automáticos devem passar:
-  - Testes unitários
-  - Cobertura mínima 80%
-  - SonarQube Quality Gate
-  - Build com sucesso
-
-### Pipeline de CI (Pull Request)
-
-```yaml
-1. Checkout do código
-2. Setup Node.js
-3. Instalar dependências
-4. Executar testes unitários
-5. Verificar cobertura (>= 80%)
-6. Build da aplicação
-7. Análise SonarQube
-8. Build da imagem Docker (sem push)
-```
-
-### Pipeline de CD (Merge para main)
-
-```yaml
-1. Executar pipeline de CI
-2. Build da imagem Docker
-3. Push para Docker Hub / GitHub Container Registry
-4. Deploy no Kubernetes (K3s)
-   - Aplicar manifests
-   - Aguardar rollout completo
-   - Verificar health check
-5. Notificar New Relic do deploy
-```
-
-### Secrets Necessários por Repositório
-
-#### Infraestrutura (infra-k8s)
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `JWT_SECRET`
-
-#### OS Service
-- `KUBECONFIG`
-- `MONGODB_URI`
-- `RABBITMQ_URL`
-- `NEW_RELIC_LICENSE_KEY`
-- `JWT_SECRET`
-- `DOCKER_USERNAME` (opcional, se usar Docker Hub)
-- `DOCKER_PASSWORD` (opcional)
-
-#### Billing Service
-- `KUBECONFIG`
-- `NEON_DATABASE_URL`
-- `RABBITMQ_URL`
-- `MERCADO_PAGO_ACCESS_TOKEN`
-- `NEW_RELIC_LICENSE_KEY`
-- `JWT_SECRET`
-- `DOCKER_USERNAME` (opcional)
-- `DOCKER_PASSWORD` (opcional)
-
-#### Production Service
-- `KUBECONFIG`
-- `NEON_DATABASE_URL`
-- `RABBITMQ_URL`
-- `NEW_RELIC_LICENSE_KEY`
-- `JWT_SECRET`
-- `DOCKER_USERNAME` (opcional)
-- `DOCKER_PASSWORD` (opcional)
-
-#### Lambda Auth
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `NEON_DATABASE_URL`
-- `JWT_SECRET`
+- Checks automáticos devem passar
 
 ### Rollback
 
