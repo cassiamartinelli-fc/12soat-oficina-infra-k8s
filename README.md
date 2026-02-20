@@ -332,22 +332,20 @@ curl <KONG_URL>
 
 O **OS Service** atua como orquestrador central, coordenando o fluxo:
 
-1. Cliente cria OS → OS Service
-2. OS Service publica `os.criada`
-3. Billing Service consome e gera orçamento
-4. Billing Service publica `orcamento.criado`
-5. Cliente aprova → Mercado Pago processa pagamento
-6. Billing Service publica `pagamento.aprovado`
-7. Production Service consome e inicia execução
-8. Production Service publica `execucao.finalizada`
-9. OS Service atualiza status para `FINALIZADA`
+1. Cliente cria OS → OS Service  
+2. OS Service publica **OS_CRIADA**  
+3. Billing Service consome e gera orçamento (nenhum evento é publicado)  
+4. Cliente aprova e paga → Billing Service publica **ORCAMENTO_APROVADO**  
+5. Production Service consome ORCAMENTO_APROVADO e publica **EXECUCAO_INICIADA**  
+6. Production Service, ao terminar, publica **EXECUCAO_FINALIZADA**  
+7. OS Service consome EXECUCAO_FINALIZADA e atualiza status para `FINALIZADA`
 
 ### Fluxo de Compensação
 
 **Cenário 1: Pagamento Recusado**
 ```
 1. Billing Service detecta falha no pagamento
-2. Publica evento pagamento.recusado
+2. Publica evento ORCAMENTO_CANCELADO
 3. OS Service consome e atualiza status para CANCELADA
 4. Production Service ignora (não iniciou execução)
 ```
@@ -355,7 +353,7 @@ O **OS Service** atua como orquestrador central, coordenando o fluxo:
 **Cenário 2: Cliente Rejeita Orçamento**
 ```
 1. Billing Service registra rejeição
-2. Publica evento orcamento.rejeitado
+2. Publica evento FALHA_EXECUCAO
 3. OS Service atualiza status para CANCELADA
 4. Nenhum pagamento é processado
 ```
