@@ -37,7 +37,7 @@ Infraestrutura AWS com K3s e Kong Gateway para arquitetura de microsserviços co
 - **New Relic APM:** https://one.newrelic.com
 
 ### Documentação
-- **Vídeo Demonstração Fase 4:** [Em breve]
+- **Vídeo Demonstração Fase 4:** [Vídeo Grupo 90](https://youtu.be/alcUy3wMlfs)
 - **Postman Collections:** [Oficina Mecânica API](https://www.postman.com/cassia-martinelli-9397607/workspace/cassia-s-workspace/request/46977418-4a758cc9-d08a-4ca6-ab97-b522149755d5?action=share&creator=46977418&ctx=documentation)
 - **Arquitetura Completa:** Ver seção [Arquitetura](#-arquitetura-da-fase-4)
 
@@ -69,8 +69,8 @@ Infraestrutura AWS com K3s e Kong Gateway para arquitetura de microsserviços co
 │ OS Service   │ │ Billing Svc  │ │Production Svc│
 │ (Port 3000)  │ │ (Port 3001)  │ │ (Port 3002)  │
 │              │ │              │ │              │
-│ MongoDB      │ │ PostgreSQL   │ │ PostgreSQL   │
-│ (NoSQL)      │ │ (SQL)        │ │ (SQL)        │
+│ PostgreSQL   │ │ MongoDB      │ │ PostgreSQL   │
+│ (SQL)        │ │ (NoSQL)      │ │ (SQL)        │
 └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
        │                │                │
        └────────────────┴────────────────┘
