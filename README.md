@@ -37,7 +37,7 @@ Infraestrutura AWS com K3s e Kong Gateway para arquitetura de microsserviços co
 - **New Relic APM:** https://one.newrelic.com
 
 ### Documentação
-- **Vídeo Demonstração Fase 4:** [Em breve]
+- **Vídeo Demonstração Fase 4:** [Vídeo Grupo 90](https://youtu.be/alcUy3wMlfs)
 - **Postman Collections:** [Oficina Mecânica API](https://www.postman.com/cassia-martinelli-9397607/workspace/cassia-s-workspace/request/46977418-4a758cc9-d08a-4ca6-ab97-b522149755d5?action=share&creator=46977418&ctx=documentation)
 - **Arquitetura Completa:** Ver seção [Arquitetura](#-arquitetura-da-fase-4)
 
@@ -69,8 +69,8 @@ Infraestrutura AWS com K3s e Kong Gateway para arquitetura de microsserviços co
 │ OS Service   │ │ Billing Svc  │ │Production Svc│
 │ (Port 3000)  │ │ (Port 3001)  │ │ (Port 3002)  │
 │              │ │              │ │              │
-│ MongoDB      │ │ PostgreSQL   │ │ PostgreSQL   │
-│ (NoSQL)      │ │ (SQL)        │ │ (SQL)        │
+│ PostgreSQL   │ │ MongoDB      │ │ PostgreSQL   │
+│ (SQL)        │ │ (NoSQL)      │ │ (SQL)        │
 └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
        │                │                │
        └────────────────┴────────────────┘
@@ -90,7 +90,7 @@ Infraestrutura AWS com K3s e Kong Gateway para arquitetura de microsserviços co
 
 ### Diagrama da Arquitetura
 
-[Diagrama da Arquitetura](https://github.com/cassiamartinelli-fc/12soat-oficina-app/blob/main/documentacao-arquitetural.pdf)
+[Diagrama da Arquitetura](https://github.com/cassiamartinelli-fc/12soat-oficina-infra-k8s/blob/main/arquitetura_diagrama.pdf)
 
 ### Decisões Arquiteturais
 
@@ -332,22 +332,20 @@ curl <KONG_URL>
 
 O **OS Service** atua como orquestrador central, coordenando o fluxo:
 
-1. Cliente cria OS → OS Service
-2. OS Service publica `os.criada`
-3. Billing Service consome e gera orçamento
-4. Billing Service publica `orcamento.criado`
-5. Cliente aprova → Mercado Pago processa pagamento
-6. Billing Service publica `pagamento.aprovado`
-7. Production Service consome e inicia execução
-8. Production Service publica `execucao.finalizada`
-9. OS Service atualiza status para `FINALIZADA`
+1. Cliente cria OS → OS Service  
+2. OS Service publica **OS_CRIADA**  
+3. Billing Service consome e gera orçamento (nenhum evento é publicado)  
+4. Cliente aprova e paga → Billing Service publica **ORCAMENTO_APROVADO**  
+5. Production Service consome ORCAMENTO_APROVADO e publica **EXECUCAO_INICIADA**  
+6. Production Service, ao terminar, publica **EXECUCAO_FINALIZADA**  
+7. OS Service consome EXECUCAO_FINALIZADA e atualiza status para `FINALIZADA`
 
 ### Fluxo de Compensação
 
 **Cenário 1: Pagamento Recusado**
 ```
 1. Billing Service detecta falha no pagamento
-2. Publica evento pagamento.recusado
+2. Publica evento ORCAMENTO_CANCELADO
 3. OS Service consome e atualiza status para CANCELADA
 4. Production Service ignora (não iniciou execução)
 ```
@@ -355,7 +353,7 @@ O **OS Service** atua como orquestrador central, coordenando o fluxo:
 **Cenário 2: Cliente Rejeita Orçamento**
 ```
 1. Billing Service registra rejeição
-2. Publica evento orcamento.rejeitado
+2. Publica evento FALHA_EXECUCAO
 3. OS Service atualiza status para CANCELADA
 4. Nenhum pagamento é processado
 ```
